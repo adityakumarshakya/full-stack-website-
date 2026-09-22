@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Login — Orinnovative CMS</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="stylesheet" href="assets/admin.css" />
+</head>
+<body>
+<div class="login-wrap">
+  <form class="login-card" id="login-form">
+    <h1>Orinnovative CMS</h1>
+    <p class="sub">Sign in to manage SEO, integrations and site content.</p>
+    <div id="alert-box"></div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required autocomplete="username" />
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required autocomplete="current-password" />
+    </div>
+    <button type="submit" id="submit-btn" style="width:100%;justify-content:center">Sign In</button>
+  </form>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  document.getElementById("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById("alert-box");
+    alertBox.innerHTML = "";
+    const btn = document.getElementById("submit-btn");
+    btn.disabled = true;
+    btn.textContent = "Signing in...";
+
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    try {
+      const data = await apiFetch("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      setToken(data.token);
+      location.href = "/admin/dashboard.html";
+    } catch (err) {
+      showAlert(alertBox, err.message || "Login failed.");
+      btn.disabled = false;
+      btn.textContent = "Sign In";
+    }
+  });
+
+  // Already logged in? skip straight to dashboard.
+  if (getToken()) {
+    apiFetch("/auth/me").then(() => { location.href = "/admin/dashboard.html"; }).catch(() => {});
+  }
+</script>
+</body>
+</html>

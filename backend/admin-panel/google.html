@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google Integration — Orinnovative CMS</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="stylesheet" href="assets/admin.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">Orin<span>novative</span> CMS</div>
+    <nav>
+      <a href="dashboard.html"><span class="label">Dashboard</span></a>
+      <a href="seo.html"><span class="label">SEO Management</span></a>
+      <a href="google.html"><span class="label">Google Integration</span></a>
+      <a href="sitemap-robots.html"><span class="label">Sitemap &amp; Robots</span></a>
+      <a href="settings.html"><span class="label">Website Settings</span></a>
+      <a href="messages.html"><span class="label">Contact Messages</span></a>
+      <a href="media.html"><span class="label">Media Library</span></a>
+    </nav>
+    <div class="logout"><button class="secondary" onclick="logoutAdmin()">Log out</button></div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <h1>Google &amp; Analytics Integration</h1>
+      <div class="who" id="who">&nbsp;</div>
+    </div>
+    <div class="content">
+      <div id="alert-box"></div>
+      <form class="card" id="google-form">
+        <div class="field">
+          <label>Google Analytics 4 Measurement ID</label>
+          <input type="text" id="gaMeasurementId" placeholder="G-XXXXXXXXXX" />
+        </div>
+        <div class="field">
+          <label>Google Search Console Verification Code</label>
+          <input type="text" id="gscVerificationCode" placeholder="verification content value only" />
+          <div class="hint">Rendered as &lt;meta name="google-site-verification" content="..."&gt; on every page.</div>
+        </div>
+        <div class="field">
+          <label>Google Tag Manager Container ID</label>
+          <input type="text" id="gtmContainerId" placeholder="GTM-XXXXXXX" />
+        </div>
+        <div class="field">
+          <label>Facebook Pixel ID (optional)</label>
+          <input type="text" id="facebookPixelId" placeholder="123456789012345" />
+        </div>
+        <button type="submit" id="save-btn">Save Integration Settings</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  requireAuth();
+  const alertBox = document.getElementById("alert-box");
+  const fields = ["gaMeasurementId", "gscVerificationCode", "gtmContainerId", "facebookPixelId"];
+
+  apiFetch("/google").then((data) => {
+    fields.forEach((f) => { document.getElementById(f).value = data.google[f] || ""; });
+  }).catch((err) => showAlert(alertBox, err.message));
+
+  document.getElementById("google-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("save-btn");
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+    const payload = {};
+    fields.forEach((f) => { payload[f] = document.getElementById(f).value; });
+
+    try {
+      await apiFetch("/google", { method: "PUT", body: JSON.stringify(payload) });
+      showAlert(alertBox, "Integration settings saved.", "success");
+    } catch (err) {
+      showAlert(alertBox, err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Save Integration Settings";
+    }
+  });
+
+  apiFetch("/auth/me").then((d) => { document.getElementById("who").textContent = `${d.admin.name} (${d.admin.role})`; }).catch(() => {});
+</script>
+</body>
+</html>

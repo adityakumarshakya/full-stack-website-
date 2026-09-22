@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Contact Messages — Orinnovative CMS</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="stylesheet" href="assets/admin.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">Orin<span>novative</span> CMS</div>
+    <nav>
+      <a href="dashboard.html"><span class="label">Dashboard</span></a>
+      <a href="seo.html"><span class="label">SEO Management</span></a>
+      <a href="google.html"><span class="label">Google Integration</span></a>
+      <a href="sitemap-robots.html"><span class="label">Sitemap &amp; Robots</span></a>
+      <a href="settings.html"><span class="label">Website Settings</span></a>
+      <a href="messages.html"><span class="label">Contact Messages</span></a>
+      <a href="media.html"><span class="label">Media Library</span></a>
+    </nav>
+    <div class="logout"><button class="secondary" onclick="logoutAdmin()">Log out</button></div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <h1>Contact Messages</h1>
+      <div class="who" id="who">&nbsp;</div>
+    </div>
+    <div class="content">
+      <div id="alert-box"></div>
+
+      <div class="tabs">
+        <button class="active" data-filter="all">All</button>
+        <button data-filter="unread">Unread</button>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead><tr><th>Status</th><th>Name</th><th>Email</th><th>Service</th><th>Subject</th><th>Source Page</th><th>Received</th><th>Message</th><th></th></tr></thead>
+          <tbody id="rows"><tr><td colspan="9">Loading...</td></tr></tbody>
+        </table>
+      </div>
+      <div id="pager" style="display:flex;gap:8px;justify-content:center"></div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  requireAuth();
+  const alertBox = document.getElementById("alert-box");
+  let currentFilter = "all";
+  let currentPage = 1;
+
+  async function load(page = 1) {
+    currentPage = page;
+    const qs = currentFilter === "unread" ? `?unread=true&page=${page}` : `?page=${page}`;
+    const data = await apiFetch(`/contact${qs}`);
+    const rows = document.getElementById("rows");
+
+    if (!data.messages.length) {
+      rows.innerHTML = `<tr><td colspan="9">No messages found.</td></tr>`;
+    } else {
+      rows.innerHTML = data.messages.map((m) => `
+        <tr class="${m.isRead ? "" : "unread"}">
+          <td><span class="badge ${m.isRead ? "read" : "unread"}">${m.isRead ? "Read" : "Unread"}</span></td>
+          <td>${escapeHtml(m.name)}</td>
+          <td>${escapeHtml(m.email)}</td>
+          <td>${escapeHtml(m.service || "—")}</td>
+          <td>${escapeHtml(m.subject || "—")}</td>
+          <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(m.sourcePage || "—")}</td>
+          <td>${formatDate(m.createdAt)}</td>
+          <td style="max-width:260px;white-space:pre-wrap">${escapeHtml(m.message)}</td>
+          <td style="white-space:nowrap">
+            <button class="secondary" data-toggle="${m._id}" data-read="${m.isRead}">${m.isRead ? "Mark unread" : "Mark read"}</button>
+            <button class="danger" data-delete="${m._id}">Delete</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    const pager = document.getElementById("pager");
+    pager.innerHTML = "";
+    for (let i = 1; i <= data.pagination.pages; i++) {
+      const b = document.createElement("button");
+      b.textContent = i;
+      b.className = i === currentPage ? "" : "secondary";
+      b.addEventListener("click", () => load(i));
+      pager.appendChild(b);
+    }
+  }
+
+  document.querySelectorAll(".tabs button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tabs button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentFilter = btn.dataset.filter;
+      load(1).catch((err) => showAlert(alertBox, err.message));
+    });
+  });
+
+  document.getElementById("rows").addEventListener("click", async (e) => {
+    const toggleId = e.target.dataset.toggle;
+    const deleteId = e.target.dataset.delete;
+
+    try {
+      if (toggleId) {
+        const isRead = e.target.dataset.read === "true";
+        await apiFetch(`/contact/${toggleId}/read`, { method: "PATCH", body: JSON.stringify({ isRead: !isRead }) });
+        load(currentPage);
+      }
+      if (deleteId) {
+        if (!confirm("Delete this message permanently?")) return;
+        await apiFetch(`/contact/${deleteId}`, { method: "DELETE" });
+        load(currentPage);
+      }
+    } catch (err) {
+      showAlert(alertBox, err.message);
+    }
+  });
+
+  apiFetch("/auth/me").then((d) => { document.getElementById("who").textContent = `${d.admin.name} (${d.admin.role})`; }).catch(() => {});
+  load(1).catch((err) => showAlert(alertBox, err.message));
+</script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Media Library — Orinnovative CMS</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="stylesheet" href="assets/admin.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">Orin<span>novative</span> CMS</div>
+    <nav>
+      <a href="dashboard.html"><span class="label">Dashboard</span></a>
+      <a href="seo.html"><span class="label">SEO Management</span></a>
+      <a href="google.html"><span class="label">Google Integration</span></a>
+      <a href="sitemap-robots.html"><span class="label">Sitemap &amp; Robots</span></a>
+      <a href="settings.html"><span class="label">Website Settings</span></a>
+      <a href="messages.html"><span class="label">Contact Messages</span></a>
+      <a href="media.html"><span class="label">Media Library</span></a>
+    </nav>
+    <div class="logout"><button class="secondary" onclick="logoutAdmin()">Log out</button></div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <h1>Media Library</h1>
+      <div class="who" id="who">&nbsp;</div>
+    </div>
+    <div class="content">
+      <div id="alert-box"></div>
+
+      <form class="card" id="upload-form">
+        <h2>Upload Images</h2>
+        <div class="grid cols-2">
+          <div class="field">
+            <input type="file" id="file-input" accept="image/*" multiple />
+            <div class="hint">PNG, JPG, WEBP, GIF, SVG or ICO. Max size per file is configured on the server (default 5MB).</div>
+          </div>
+          <div class="field">
+            <label>Folder</label>
+            <input type="text" id="upload-folder" placeholder="general" />
+            <div class="hint">Groups uploads, e.g. "logos", "blog", "team".</div>
+          </div>
+        </div>
+        <button type="submit" id="upload-btn">Upload</button>
+      </form>
+
+      <div class="card">
+        <h2>All Media</h2>
+        <div class="field" style="max-width:260px">
+          <label>Filter by folder</label>
+          <select id="folder-filter"><option value="">All folders</option></select>
+        </div>
+        <div class="media-grid" id="grid"><p>Loading...</p></div>
+      </div>
+      <input type="file" id="replace-input" accept="image/*" style="display:none" />
+    </div>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  requireAuth();
+  const alertBox = document.getElementById("alert-box");
+  let replaceTargetId = null;
+
+  async function loadMedia() {
+    const folder = document.getElementById("folder-filter").value;
+    const qs = folder ? `?folder=${encodeURIComponent(folder)}` : "";
+    const data = await apiFetch(`/media${qs}`);
+    const grid = document.getElementById("grid");
+
+    const select = document.getElementById("folder-filter");
+    const current = select.value;
+    select.innerHTML = '<option value="">All folders</option>' +
+      (data.folders || []).map((f) => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join("");
+    select.value = current;
+
+    if (!data.media.length) {
+      grid.innerHTML = "<p>No media uploaded yet.</p>";
+      return;
+    }
+    grid.innerHTML = data.media.map((m) => `
+      <div class="media-item">
+        <img src="${m.url}" alt="${escapeHtml(m.originalName)}" />
+        <div class="meta">${escapeHtml(m.url)} &middot; ${escapeHtml(m.folder || "general")}</div>
+        <div class="actions">
+          <button class="secondary" data-copy="${m.url}">Copy URL</button>
+          <button class="secondary" data-replace="${m._id}">Replace</button>
+          <button class="danger" data-delete="${m._id}">Delete</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  document.getElementById("upload-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("file-input");
+    if (!input.files.length) return;
+    const btn = document.getElementById("upload-btn");
+    btn.disabled = true;
+    btn.textContent = "Uploading...";
+
+    const formData = new FormData();
+    Array.from(input.files).forEach((f) => formData.append("images", f));
+    const folder = document.getElementById("upload-folder").value.trim();
+    if (folder) formData.append("folder", folder);
+
+    try {
+      await apiFetch("/media/upload", { method: "POST", body: formData });
+      input.value = "";
+      showAlert(alertBox, "Upload successful.", "success");
+      loadMedia();
+    } catch (err) {
+      showAlert(alertBox, err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Upload";
+    }
+  });
+
+  document.getElementById("grid").addEventListener("click", async (e) => {
+    const copyUrl = e.target.dataset.copy;
+    const replaceId = e.target.dataset.replace;
+    const deleteId = e.target.dataset.delete;
+
+    if (copyUrl) {
+      navigator.clipboard.writeText(copyUrl).then(() => showAlert(alertBox, "URL copied to clipboard.", "success"));
+    }
+    if (replaceId) {
+      replaceTargetId = replaceId;
+      document.getElementById("replace-input").click();
+    }
+    if (deleteId) {
+      if (!confirm("Delete this image permanently?")) return;
+      try {
+        await apiFetch(`/media/${deleteId}`, { method: "DELETE" });
+        loadMedia();
+      } catch (err) {
+        showAlert(alertBox, err.message);
+      }
+    }
+  });
+
+  document.getElementById("replace-input").addEventListener("change", async (e) => {
+    if (!e.target.files.length || !replaceTargetId) return;
+    const formData = new FormData();
+    formData.append("image", e.target.files[0]);
+    try {
+      await apiFetch(`/media/${replaceTargetId}/replace`, { method: "PUT", body: formData });
+      showAlert(alertBox, "Image replaced.", "success");
+      loadMedia();
+    } catch (err) {
+      showAlert(alertBox, err.message);
+    } finally {
+      e.target.value = "";
+      replaceTargetId = null;
+    }
+  });
+
+  apiFetch("/auth/me").then((d) => { document.getElementById("who").textContent = `${d.admin.name} (${d.admin.role})`; }).catch(() => {});
+  loadMedia().catch((err) => showAlert(alertBox, err.message));
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Orinnovative CMS</title>
+<meta name="robots" content="noindex, nofollow" />
+<script src="assets/api.js"></script>
+<script>
+  if (getToken()) {
+    location.replace("/admin/dashboard.html");
+  } else {
+    location.replace("/admin/login.html");
+  }
+</script>
+</head>
+<body></body>
+</html>

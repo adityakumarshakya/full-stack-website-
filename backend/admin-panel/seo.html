@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SEO Management — Orinnovative CMS</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="stylesheet" href="assets/admin.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">Orin<span>novative</span> CMS</div>
+    <nav>
+      <a href="dashboard.html"><span class="label">Dashboard</span></a>
+      <a href="seo.html"><span class="label">SEO Management</span></a>
+      <a href="google.html"><span class="label">Google Integration</span></a>
+      <a href="sitemap-robots.html"><span class="label">Sitemap &amp; Robots</span></a>
+      <a href="settings.html"><span class="label">Website Settings</span></a>
+      <a href="messages.html"><span class="label">Contact Messages</span></a>
+      <a href="media.html"><span class="label">Media Library</span></a>
+    </nav>
+    <div class="logout"><button class="secondary" onclick="logoutAdmin()">Log out</button></div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <h1>SEO Management</h1>
+      <div class="who" id="who">&nbsp;</div>
+    </div>
+    <div class="content">
+      <div id="alert-box"></div>
+
+      <div class="card">
+        <label for="page-select">Select a page to edit</label>
+        <select id="page-select"></select>
+      </div>
+
+      <form class="card" id="seo-form">
+        <h2>Basic Meta Tags</h2>
+        <div class="field">
+          <label>Meta Title</label>
+          <input type="text" id="metaTitle" maxlength="160" />
+          <div class="hint">Falls back to the title already in the page's HTML if left blank.</div>
+        </div>
+        <div class="field">
+          <label>Meta Description</label>
+          <textarea id="metaDescription" maxlength="320"></textarea>
+        </div>
+        <div class="field">
+          <label>Meta Keywords</label>
+          <input type="text" id="metaKeywords" placeholder="comma, separated, keywords" />
+        </div>
+        <div class="grid cols-2">
+          <div class="field">
+            <label>Canonical URL</label>
+            <input type="text" id="canonicalUrl" placeholder="auto-generated if left blank" />
+          </div>
+          <div class="field">
+            <label>Robots Meta</label>
+            <select id="robotsMeta">
+              <option value="index, follow">index, follow</option>
+              <option value="noindex, follow">noindex, follow</option>
+              <option value="index, nofollow">index, nofollow</option>
+              <option value="noindex, nofollow">noindex, nofollow</option>
+            </select>
+          </div>
+        </div>
+
+        <h2>Open Graph</h2>
+        <div class="grid cols-2">
+          <div class="field"><label>OG Title</label><input type="text" id="ogTitle" /></div>
+          <div class="field"><label>OG Type</label><input type="text" id="ogType" placeholder="website" /></div>
+        </div>
+        <div class="field"><label>OG Description</label><textarea id="ogDescription"></textarea></div>
+        <div class="field"><label>OG Image URL</label><input type="text" id="ogImage" placeholder="/uploads/xxxx.jpg or full URL" /></div>
+
+        <h2>Twitter Card</h2>
+        <div class="grid cols-2">
+          <div class="field">
+            <label>Card Type</label>
+            <select id="twitterCard">
+              <option value="summary_large_image">summary_large_image</option>
+              <option value="summary">summary</option>
+              <option value="app">app</option>
+              <option value="player">player</option>
+            </select>
+          </div>
+          <div class="field"><label>Twitter Image URL</label><input type="text" id="twitterImage" /></div>
+        </div>
+        <div class="field"><label>Twitter Title</label><input type="text" id="twitterTitle" /></div>
+        <div class="field"><label>Twitter Description</label><textarea id="twitterDescription"></textarea></div>
+
+        <h2>Schema Markup (JSON-LD)</h2>
+        <div class="field">
+          <textarea id="schemaMarkup" style="min-height:140px" placeholder='{"@context":"https://schema.org","@type":"Organization","name":"Orinnovative"}'></textarea>
+          <div class="hint">Must be valid JSON. Leave blank to omit structured data on this page.</div>
+        </div>
+
+        <button type="submit" id="save-btn">Save SEO Settings</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  requireAuth();
+  const alertBox = document.getElementById("alert-box");
+  const select = document.getElementById("page-select");
+  const form = document.getElementById("seo-form");
+
+  const fields = [
+    "metaTitle", "metaDescription", "metaKeywords", "canonicalUrl", "robotsMeta",
+    "ogTitle", "ogType", "ogDescription", "ogImage",
+    "twitterCard", "twitterTitle", "twitterDescription", "twitterImage",
+    "schemaMarkup",
+  ];
+
+  let pages = [];
+
+  async function loadPages() {
+    const data = await apiFetch("/seo");
+    pages = data.pages;
+    select.innerHTML = pages.map((p) => `<option value="${p.slug}">${p.slug.toUpperCase()} — ${p.file}</option>`).join("");
+    loadPage(pages[0].slug);
+  }
+
+  async function loadPage(slug) {
+    alertBox.innerHTML = "";
+    const data = await apiFetch(`/seo/${slug}`);
+    fields.forEach((f) => { document.getElementById(f).value = (data.seo && data.seo[f]) || ""; });
+  }
+
+  select.addEventListener("change", () => loadPage(select.value));
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("save-btn");
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+    const payload = {};
+    fields.forEach((f) => { payload[f] = document.getElementById(f).value; });
+
+    try {
+      await apiFetch(`/seo/${select.value}`, { method: "PUT", body: JSON.stringify(payload) });
+      showAlert(alertBox, "SEO settings saved successfully.", "success");
+    } catch (err) {
+      showAlert(alertBox, err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Save SEO Settings";
+    }
+  });
+
+  apiFetch("/auth/me").then((d) => { document.getElementById("who").textContent = `${d.admin.name} (${d.admin.role})`; }).catch(() => {});
+  loadPages().catch((err) => showAlert(alertBox, err.message));
+</script>
+</body>
+</html>

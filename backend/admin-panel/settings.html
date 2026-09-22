@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Website Settings — Orinnovative CMS</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="stylesheet" href="assets/admin.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">Orin<span>novative</span> CMS</div>
+    <nav>
+      <a href="dashboard.html"><span class="label">Dashboard</span></a>
+      <a href="seo.html"><span class="label">SEO Management</span></a>
+      <a href="google.html"><span class="label">Google Integration</span></a>
+      <a href="sitemap-robots.html"><span class="label">Sitemap &amp; Robots</span></a>
+      <a href="settings.html"><span class="label">Website Settings</span></a>
+      <a href="messages.html"><span class="label">Contact Messages</span></a>
+      <a href="media.html"><span class="label">Media Library</span></a>
+    </nav>
+    <div class="logout"><button class="secondary" onclick="logoutAdmin()">Log out</button></div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <h1>Website Settings</h1>
+      <div class="who" id="who">&nbsp;</div>
+    </div>
+    <div class="content">
+      <div id="alert-box"></div>
+
+      <form class="card" id="settings-form">
+        <h2>General</h2>
+        <div class="field"><label>Website Name</label><input type="text" id="siteName" /></div>
+
+        <div class="grid cols-2">
+          <div class="field">
+            <label>Logo URL</label>
+            <input type="text" id="logoUrl" placeholder="/uploads/xxxx.png" />
+            <div class="hint">Upload via the <a href="media.html">Media Library</a>, then paste the URL here.</div>
+          </div>
+          <div class="field">
+            <label>Favicon URL</label>
+            <input type="text" id="faviconUrl" placeholder="/uploads/xxxx.ico" />
+          </div>
+        </div>
+
+        <h2>Contact Information</h2>
+        <div class="grid cols-2">
+          <div class="field"><label>Email</label><input type="text" id="contactEmail" /></div>
+          <div class="field"><label>Phone Number</label><input type="text" id="contactPhone" /></div>
+        </div>
+        <div class="field"><label>Address</label><textarea id="address"></textarea></div>
+        <div class="grid cols-2">
+          <div class="field"><label>Business Hours</label><input type="text" id="businessHours" placeholder="Mon-Fri 9am-6pm IST" /></div>
+          <div class="field"><label>Footer Tagline</label><input type="text" id="footerText" placeholder="Shown under the logo in the site footer" /></div>
+        </div>
+
+        <h2>Social Media Links</h2>
+        <div class="grid cols-2">
+          <div class="field"><label>Facebook</label><input type="text" id="social_facebook" /></div>
+          <div class="field"><label>Twitter / X</label><input type="text" id="social_twitter" /></div>
+          <div class="field"><label>Instagram</label><input type="text" id="social_instagram" /></div>
+          <div class="field"><label>LinkedIn</label><input type="text" id="social_linkedin" /></div>
+          <div class="field"><label>YouTube</label><input type="text" id="social_youtube" /></div>
+          <div class="field"><label>WhatsApp</label><input type="text" id="social_whatsapp" /></div>
+        </div>
+
+        <button type="submit" id="save-btn">Save Settings</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+  requireAuth();
+  const alertBox = document.getElementById("alert-box");
+  const fields = ["siteName", "logoUrl", "faviconUrl", "contactEmail", "contactPhone", "address", "businessHours", "footerText"];
+  const socialFields = ["facebook", "twitter", "instagram", "linkedin", "youtube", "whatsapp"];
+
+  apiFetch("/settings").then((data) => {
+    const s = data.settings;
+    fields.forEach((f) => { document.getElementById(f).value = s[f] || ""; });
+    socialFields.forEach((f) => { document.getElementById(`social_${f}`).value = (s.socialLinks && s.socialLinks[f]) || ""; });
+  }).catch((err) => showAlert(alertBox, err.message));
+
+  document.getElementById("settings-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("save-btn");
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+
+    const payload = {};
+    fields.forEach((f) => { payload[f] = document.getElementById(f).value; });
+    payload.socialLinks = {};
+    socialFields.forEach((f) => { payload.socialLinks[f] = document.getElementById(`social_${f}`).value; });
+
+    try {
+      await apiFetch("/settings", { method: "PUT", body: JSON.stringify(payload) });
+      showAlert(alertBox, "Website settings saved.", "success");
+    } catch (err) {
+      showAlert(alertBox, err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Save Settings";
+    }
+  });
+
+  apiFetch("/auth/me").then((d) => { document.getElementById("who").textContent = `${d.admin.name} (${d.admin.role})`; }).catch(() => {});
+</script>
+</body>
+</html>
